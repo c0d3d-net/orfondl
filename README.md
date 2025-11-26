@@ -12,7 +12,15 @@ Install [FFMPEG](https://ffmpeg.org/download.html).
 
 The path to the FFMPEG executable must be in your `PATH` environment variable, so `orfondl` can find and execute it.
 
-Next, download the latest `orfondl` executable for your operating system from the [release page](https://github.com/badlogic/orfondl/releases). Also make sure its path is in your `PATH` environment variable.
+## Building from source
+
+You'll need [Go](https://go.dev/) installed. Then:
+
+```
+git clone https://github.com/badlogic/orfondl
+cd orfondl
+go build -o orfondl
+```
 
 > **Note** on macOS and Linux run `chmod a+x <executable>` before launching the executable
 > **Note** on macOS you will see the infamous "You want to run software on your computer? Not without a silly dance!" dialog after the first run. Open `Privacy and Security`, scroll down and press "Allow" or whatever the current flavor of this idiocy is. The run the executable again.
@@ -32,13 +40,3 @@ https://on.orf.at/video/14211478/zib-700-vom-30012024
 ```
 
 Run `orfondl videos.txt` to download all videos specified in the file `videos.txt`.
-
-## Building from source
-
-You'll need [Go](https://go.dev/) installed. Then:
-
-```
-git clone https://github.com/badlogic/orfondl
-cd orfondl
-go build -o orfondl
-```
