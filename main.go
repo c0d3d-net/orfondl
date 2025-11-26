@@ -16,7 +16,7 @@ import (
 
 type MPD struct {
 	XMLName     xml.Name `xml:"MPD"`
-	PublishTime string   `xml:"publishTime,attr"` // Ensure this matches your XML.
+	PublishTime string   `xml:"publishTime,attr"`
 	Periods     []Period `xml:"Period"`
 }
 
@@ -55,23 +55,19 @@ type S struct {
 	R int `xml:"r,attr"`
 }
 
-// downloadAndAppendFile downloads a file from url and appends its content to the file at filePath.
 func downloadAndAppendFile(url, filePath string) error {
-	// Send HTTP GET request
 	resp, err := http.Get(url)
 	if err != nil {
 		return fmt.Errorf("failed to download file: %v", err)
 	}
 	defer resp.Body.Close()
 
-	// Open file in append mode
 	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to open file: %v", err)
 	}
 	defer file.Close()
 
-	// Copy the response body to the file
 	if _, err := io.Copy(file, resp.Body); err != nil {
 		return fmt.Errorf("failed to append to file: %v", err)
 	}
@@ -79,9 +75,7 @@ func downloadAndAppendFile(url, filePath string) error {
 	return nil
 }
 
-// writeStreamToFile downloads video or audio segments based on templates and appends them to a file.
 func writeStreamToFile(baseUrl string, templates SegmentTemplate, representation Representation, timeline []S, file string) {
-	// Process initialization segment
 	initFile := strings.Replace(templates.Initialization, "$RepresentationID$", representation.ID, 1)
 	fmt.Println("Downloading segment", initFile)
 	if err := downloadAndAppendFile(baseUrl+initFile, file); err != nil {
@@ -89,7 +83,6 @@ func writeStreamToFile(baseUrl string, templates SegmentTemplate, representation
 		return
 	}
 
-	// Process media segments
 	time := 0
 	for _, segment := range timeline {
 		mediaFile := strings.Replace(templates.Media, "$RepresentationID$", representation.ID, 1)
@@ -101,7 +94,6 @@ func writeStreamToFile(baseUrl string, templates SegmentTemplate, representation
 		}
 		time += segment.D
 
-		// Handle repeat segments
 		if segment.R > 0 {
 			for i := 0; i < segment.R; i++ {
 				mediaFile = strings.Replace(templates.Media, "$RepresentationID$", representation.ID, 1)
@@ -117,18 +109,16 @@ func writeStreamToFile(baseUrl string, templates SegmentTemplate, representation
 	}
 }
 
-// mergeVideoAndAudio merges the specified video and audio files into a single output file using ffmpeg.
 func mergeVideoAndAudio(videoFile, audioFile, output string) error {
 	fmt.Printf("Merging %s and %s into %s\n", videoFile, audioFile, output)
 
 	cmd := exec.Command("ffmpeg", "-loglevel", "error", "-y", "-i", videoFile, "-i", audioFile, "-c", "copy", output)
-	err := cmd.Run() // Run waits for the command to complete.
+	err := cmd.Run()
 
 	if err != nil {
 		return fmt.Errorf("ffmpeg error: %v", err)
 	}
 
-	// Remove the source files after merging
 	if err := os.Remove(videoFile); err != nil {
 		fmt.Printf("Warning: Failed to delete video file %s: %v\n", videoFile, err)
 	}
@@ -140,7 +130,6 @@ func mergeVideoAndAudio(videoFile, audioFile, output string) error {
 	return nil
 }
 
-// Extract URLs from the provided text using a regular expression.
 func extractUrls(text string) []string {
 	var urls []string
 	regex := regexp.MustCompile(`"(https?:\/\/[^"\s]+?manifest\.mpd)"`)
@@ -153,7 +142,6 @@ func extractUrls(text string) []string {
 	return urls
 }
 
-// Download the video by fetching the HTML, extracting the video URL, and then processing it.
 func downloadVideo(url string, output string) {
 	response, err := http.Get(url)
 	if err != nil {
@@ -179,6 +167,7 @@ func downloadVideo(url string, output string) {
 	var title string
 	if len(titleMatch) > 1 {
 		title = titleMatch[1]
+		title = strings.ReplaceAll(title, ":", " -") // FIX
 	}
 
 	urls := extractUrls(html)
@@ -199,11 +188,8 @@ func downloadVideo(url string, output string) {
 		}
 	}
 
-	// At this point, you have the manifest URL in manifestUrl.
-	// You would continue by downloading the video or manifest as needed.
 	fmt.Printf("Title: %s\nManifest URL: %s\n", title, manifestUrl)
 
-	// Fetch and parse the manifest XML
 	xmlResponse, err := http.Get(manifestUrl)
 	if err != nil || xmlResponse.StatusCode != http.StatusOK {
 		fmt.Println("Could not fetch manifest.mpd")
@@ -224,20 +210,14 @@ func downloadVideo(url string, output string) {
 		os.Exit(-1)
 	}
 
-	publishedDate := manifest.PublishTime[:10] // Assuming the format is as expected.
 	if output == "" {
-		output = publishedDate + " " + title + ".mp4"
+		output = title + ".mp4"
 	}
 
-	if output == "" {
-		fmt.Println("Please specify an output file name.")
-		os.Exit(-1)
-	}
+	output = strings.ReplaceAll(output, ":", " -") // FIX
 
-	// You now have the output filename in `output`.
 	fmt.Printf("Output file: %s\n", output)
 
-	// Process video representation
 	videoSet := manifest.Periods[0].AdaptationSet[0]
 	var highestVideo Representation
 	for _, rep := range videoSet.Representation {
@@ -248,7 +228,6 @@ func downloadVideo(url string, output string) {
 	videoTemplates := videoSet.SegmentTemplate[0]
 	videoTimeline := videoSet.SegmentTemplate[0].SegmentTimeline.S
 
-	// Process audio representation
 	audioSet := manifest.Periods[0].AdaptationSet[1]
 	var highestAudio Representation
 	for _, rep := range audioSet.Representation {
@@ -259,7 +238,6 @@ func downloadVideo(url string, output string) {
 	audioTemplates := audioSet.SegmentTemplate[0]
 	audioTimeline := audioSet.SegmentTemplate[0].SegmentTimeline.S
 
-	// Info
 	fmt.Printf("Video:\n")
 	fmt.Printf("ID: %s, Width: %d, Height: %d, Codec: %s, Bandwidth: %d\n",
 		highestVideo.ID, highestVideo.Width, highestVideo.Height, highestVideo.Codec, highestVideo.Bandwidth)
@@ -269,31 +247,25 @@ func downloadVideo(url string, output string) {
 		highestAudio.ID, highestAudio.AudioSamplingRate, highestAudio.Codec, highestAudio.Bandwidth)
 	fmt.Printf("Audio Template:\nMedia: %s, Initialization: %s\n", audioTemplates.Media, audioTemplates.Initialization)
 
-	// Assuming variables baseUrl, videoTemplates, videoRepresentation, videoTimeline, audioTemplates, audioRepresentation, audioTimeline are defined
 	baseUrl := strings.Replace(manifestUrl, "/manifest.mpd", "/", -1)
 	videoFile := "__" + output + ".video"
 	audioFile := "__" + output + ".audio"
 
-	// Initialize a WaitGroup
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	// Write video stream to file in a goroutine
 	go func() {
-		defer wg.Done() // Decrement the counter when the goroutine completes
+		defer wg.Done()
 		writeStreamToFile(baseUrl, videoTemplates, highestVideo, videoTimeline, videoFile)
 	}()
 
-	// Write audio stream to file in a goroutine
 	go func() {
-		defer wg.Done() // Decrement the counter when the goroutine completes
+		defer wg.Done()
 		writeStreamToFile(baseUrl, audioTemplates, highestAudio, audioTimeline, audioFile)
 	}()
 
-	// Wait for both goroutines to complete
 	wg.Wait()
 
-	// Merge streams
 	if err := mergeVideoAndAudio(videoFile, audioFile, output); err != nil {
 		fmt.Printf("Error merging video and audio: %v\n", err)
 	} else {
@@ -303,14 +275,16 @@ func downloadVideo(url string, output string) {
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("orfondl <video-url>")
+		fmt.Println("orfondl <video-url> or orfondl linklist.txt")
 		os.Exit(-1)
 	}
 	urlOrFile := os.Args[1]
 	var output string
 	if len(os.Args) > 2 {
 		output = os.Args[2]
+		output = strings.ReplaceAll(output, ":", " -") // FIX
 	}
+
 	if strings.HasPrefix(urlOrFile, "http") {
 		downloadVideo(urlOrFile, output)
 	} else {
